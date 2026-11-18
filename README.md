@@ -52,12 +52,19 @@ pnpm --version   # 10.x or later
    ```env
    NEXT_PUBLIC_SUPABASE_URL=
    NEXT_PUBLIC_SUPABASE_ANON_KEY=
-   SUPABASE_SECRET_KEY=
    ```
 
    `.env.local` is gitignored and is the file Next.js loads at development time. Do not commit secrets.
 
    To configure manually instead, copy `.env.example` to `.env.local` and fill in the values yourself.
+
+4. Apply migrations and import the CSV:
+
+   ```bash
+   pnpm exec supabase db reset
+   ```
+
+   In Windows PowerShell, use `pnpm.cmd` in place of `pnpm` if the execution policy blocks `pnpm.ps1`. The setup script uses Node and runs on both Windows and Unix.
 
 ### Running the app
 
@@ -157,6 +164,28 @@ During review, we will assume you understand your submission and can explain you
 - Working local setup: data loaded, table visible at [http://localhost:3000](http://localhost:3000) (or a route you add).
 - Brief notes on your schema, import approach, filtering strategy, and scale decisions.
 
+## Implementation notes
+
+### Data and schema
+
+The CSV has 10,000 rows, 10,000 unique IDs (1–10,000), no missing values, and no duplicate rows. Numeric measurements have at most one decimal place. Observed ranges include age 18–80, coffee intake 0–8.2, caffeine 0–780.3 mg, sleep 3–10 hours, BMI 15–38.2, heart rate 50–109, and physical activity 0–15 hours. There are 20 countries, 3 genders, 4 sleep qualities, and 3 stress levels.
+
+One `coffee_health` table preserves the source row shape. The CSV ID is its primary key; measurements use bounded `numeric` or `smallint`, and the two 0/1 columns use `boolean`. `NOT NULL` reflects the source; broad physical sanity checks prevent obvious invalid values without treating today's synthetic categories as permanent database enums. Snake case column names follow Postgres conventions. Only `SELECT` is granted to `anon` and `authenticated`, with a matching read policy under RLS. The page uses the public anon key under RLS; it does not need a service secret.
+
+`supabase/seed.sql` contains 20 batches of 500 inserts generated from the CSV. This duplicates the source file in the repository, but makes `supabase db reset` self-contained and reliable on Windows and in the Supabase CLI. Rebuild the seed from the CSV if the dataset changes. The local database was verified at 10,000 rows with `sum(age) = 349491` and `sum(coffee_intake) = 25092.3`. A canonical, ID-ordered serialization of every field in every database row had the same MD5 hash as the CSV (`bf4600e6faa7f988e201e30add178cf9`), verifying the full import.
+
+For a much larger import, use PostgreSQL `COPY` through a separate loader and build indexes after the load. The generated `INSERT` seed is intended for this 10,000-row exercise.
+
+### Querying and scale
+
+The filter controls are the only page-specific Client Component. Category changes navigate immediately through the Next.js router; age changes wait 400 ms. Each change replaces the search params, drops the page cursor, and preserves page scroll. Invalid age ranges stay in the controls without starting a query. The server still validates direct URLs before querying Supabase. PostgreSQL applies exact category filters, an inclusive age range, and deterministic `id` ordering. It fetches 51 rows to display 50 and determine whether another page exists. Previous/next links carry the filters in the URL. No full dataset is fetched into Node or the browser.
+
+There is no application-level cache: each page navigation reads current data through the anon Supabase client. Automatic filters add a small amount of client state and JavaScript compared with the former GET form, but avoid a submit button and coalesce age keystrokes. Filter changes use `router.replace` so typing does not fill browser history; pagination links still use normal Next.js navigation. Browser back/forward restores the controls from the URL. The table and database access remain on the server.
+
+Keyset pagination on the unique ID keeps navigation work bounded for deep pages; `OFFSET` would still scan or skip preceding rows. The trade-off is no direct page number or arbitrary sort, and changing data can alter page membership between requests. A future requirement for sorting by a measurement would need a matching `(sort_column, id)` cursor and index. The UI deliberately avoids an exact total for every filter because `COUNT(*)` must visit matching entries and becomes expensive at large scale. Filter options are based on the known CSV categories; if categories become dynamic, query a maintained lookup/facet source instead of repeatedly running `DISTINCT` over millions of rows.
+
+The migration keeps `(country, id)` and `(age, id)` indexes alongside the primary key. Country is the most selective categorical filter, and the age index helps exact-age searches; lower-selectivity gender, sleep, and stress indexes did not help the measured page queries and were removed. Each index costs storage and slows writes. On 10,000 rows, `EXPLAIN (ANALYZE, BUFFERS)` chose the primary key for a Germany page (0.114 ms) and a combined gender/sleep/age page (0.143 ms). In temporary tables with repeated source distributions and the final index set, a Germany page took 0.117 ms at 100,000 rows. A rare combination with no matches past the cursor took 1.091 ms at 100,000 rows (country index plus sort), but 48.872 ms at 1,000,000 rows (primary-key scan of 500,000 IDs). The exact Germany count took 3.374 ms and 26.291 ms respectively. The temporary tables were dropped, and the delivery database still has 10,000 rows. These local measurements are not production guarantees; index choices need real distributions and query frequencies. Exact totals or dynamic facets would need a separate product justification.
+
 ---
 
 ## Configuración (Español)
@@ -207,12 +236,19 @@ pnpm --version   # 10.x o superior
    ```env
    NEXT_PUBLIC_SUPABASE_URL=
    NEXT_PUBLIC_SUPABASE_ANON_KEY=
-   SUPABASE_SECRET_KEY=
    ```
 
    `.env.local` está en `.gitignore` y es el archivo que Next.js carga en desarrollo. No subas secretos al repositorio.
 
    Para configurar manualmente, copia `.env.example` a `.env.local` y completa los valores tú mismo.
+
+4. Aplica las migraciones e importa el CSV:
+
+   ```bash
+   pnpm exec supabase db reset
+   ```
+
+   En PowerShell, usa `pnpm.cmd` en lugar de `pnpm` si la política de ejecución bloquea `pnpm.ps1`. El script de configuración usa Node y funciona tanto en Windows como en Unix.
 
 ### Ejecutar la aplicación
 

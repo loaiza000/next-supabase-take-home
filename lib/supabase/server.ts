@@ -1,5 +1,4 @@
 import { createServerClient } from "@supabase/ssr";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 /**
@@ -29,34 +28,6 @@ export async function createClient() {
             // user sessions.
           }
         },
-      },
-    },
-  );
-}
-
-/**
- * Creates a Supabase client authenticated with the service secret key, without
- * reading or writing user session cookies. Use only in trusted server code
- * (Route Handlers, Server Actions, background jobs) when you need to bypass
- * Row Level Security or perform privileged operations such as admin auth APIs.
- * Never import this into Client Components or expose `SUPABASE_SECRET_KEY` to
- * the browser.
- *
- * Crea un cliente de Supabase autenticado con la clave secreta de servicio, sin
- * leer ni escribir cookies de sesión de usuario. Úsalo solo en código de
- * servidor de confianza (Route Handlers, Server Actions, trabajos en segundo
- * plano) cuando necesites omitir Row Level Security o realizar operaciones
- * privilegiadas, como las APIs de auth de administrador. Nunca lo importes en
- * Client Components ni expongas `SUPABASE_SECRET_KEY` al navegador.
- */
-export function createAdminClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SECRET_KEY!,
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
       },
     },
   );
