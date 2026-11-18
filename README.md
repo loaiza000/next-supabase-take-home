@@ -56,7 +56,7 @@ pnpm --version   # 10.x or later
 
    `.env.local` is gitignored and is the file Next.js loads at development time. Do not commit secrets.
 
-   To configure manually instead, copy `.env.example` to `.env.local` and fill in the values yourself.
+   To configure manually instead, create `.env.local` with the two values shown above.
 
 4. Apply migrations and import the CSV:
 
@@ -240,7 +240,7 @@ pnpm --version   # 10.x o superior
 
    `.env.local` está en `.gitignore` y es el archivo que Next.js carga en desarrollo. No subas secretos al repositorio.
 
-   Para configurar manualmente, copia `.env.example` a `.env.local` y completa los valores tú mismo.
+   Para configurar manualmente, crea `.env.local` con los dos valores indicados arriba.
 
 4. Aplica las migraciones e importa el CSV:
 
